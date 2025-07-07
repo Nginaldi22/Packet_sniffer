@@ -33,6 +33,31 @@ typedef struct{
 
 struct sockaddr_in source_addr, dest_addr;
 
+void get_mac(char * if_name, packet_filter_t * packet_filter, char * if_type){
+    int fd;
+    struct ifreq ifr;
+    fd = socket(AF_INET, SOCK_DGRAM,0);
+    ifr.idr_addr.sa_family = AF_INET;
+    strncpy(ifr.ifr_name, if_name, IFNAMSIZ-1);
+    ioctl(fd,SIOCGIFHWADDR,&ifr);
+    close(fd);
+
+    if(strcmp(if_type, "source")==0){
+        strcpy(packet_filter->source_mac, (uint8_t*) ifr.ifr_hwaddr.sa_data);
+    }else{
+        strcpy(packet_filter->dest_mac, (uint8_t*) ifr.ifr_hwaddr.sa_data);
+    }
+}
+
+uint8_t maccmp(uint8_t *mac1, uint8_t *mac2){
+    for(uint8_t i=0; i<6; i++){
+        if(mac1[i]!= mac2[i]){
+            return o;
+        }
+    }
+    return 1;
+}
+
 int main(int argc, char ** argv){
     int c;
     char log[255];
@@ -111,6 +136,16 @@ int main(int argc, char ** argv){
    if(!log_file){
     exit_with_error("FAILED TO OPEN LOG FILE");
    }
-   //37.56
+   
+   if(packet_filter.source_if_name !=NULL){
+    get_mac(packet_filter.source_if_name, &packet_filter, "source");
+   }
+   if(packet_filter.dest_if_name !=NULL){
+    get_mac(packet_filter.dest_if_name, &packet_filter, "dest");
+   }
+
+   while(1){
+    //45:50
+   }
     return 0;
 }
