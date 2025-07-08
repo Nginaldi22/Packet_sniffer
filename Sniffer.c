@@ -33,6 +33,15 @@ typedef struct{
 
 struct sockaddr_in source_addr, dest_addr;
 
+uint8_t filter_ip(packet_filter_t *filter){
+    if(filter->source_ip !=NULL && strcmp(filter->source_ip, inet_ntoa(source_addr.sin_addr))!=0){
+        return 0;
+    }
+    if(filter->dest_ip !=NULL && strcmp(filter->dest_ip, inet_ntoa(dest_addr.sin_addr))!=0){
+        return 0;
+    }
+    return 1;
+}
 void get_mac(char * if_name, packet_filter_t * packet_filter, char * if_type){
     int fd;
     struct ifreq ifr;
@@ -52,16 +61,61 @@ void get_mac(char * if_name, packet_filter_t * packet_filter, char * if_type){
 uint8_t maccmp(uint8_t *mac1, uint8_t *mac2){
     for(uint8_t i=0; i<6; i++){
         if(mac1[i]!= mac2[i]){
-            return o;
+            return 0;
         }
     }
     return 1;
+}
+//PACKET DATA ORDER:
+//ethernet header
+//IP header
+//transport layer header
+//user data
+void process_packet (uint8_t *buffer, int bufflen, packet_filter_t *packet_filter, FILE *lf){
+    int iphdrlen;
+    struct ethdr *eth = (struct ethdr*)(buffer);
+    if(ntohs(eth->h_proto)!=0x0800){
+        return;
+    }
+
+    if(packet_filter->source_if_name!=NULL && maccmp(packet_filter->source_mac, eth->h_source)){
+        return;
+    }
+
+     if(packet_filter->dest_if_name!=NULL && maccmp(packet_filter->dest_mac, eth->h_dest)){
+        return;
+    }
+
+    struct iphdr *ip = (struct iphdr*)(buffer+sizeof(struct ethdr));
+    iphdrlen= ip->ihl*4;
+
+    memset(&source_addr,0,sizeof(source_addr));
+    memset(&dest_addr,0,sizeof(dest_addr));
+    source_addr.sin_addr.s_addr=ip->saddr;
+    dest_addr.sin_addr.s_addr=ip->daddr;
+    
+    if(filter_ip(packet_filter)==0){
+        return;
+    }
+
+    if(packet_filter->t_protocol !=0 && ip->protocol != packet_filter->t_protocol){
+        return;
+    }
+    //only considering upd and tcp packets
+    struct tcphdr *tcp = NULL;
+    struct udphdr *udp = NULL;
+    if(ip->protocol==IPPROTO_TCP){
+        tcp = (struct tcphdr *)(buffer + iphdrlen + sizeof(struct ethdr));
+        //101:55
+    }
+
+
 }
 
 int main(int argc, char ** argv){
     int c;
     char log[255];
-    FILE* log_file=NULL;
+    FILE* logfile=NULL;
     packet_filter_t packet_filter = {0, NULL,NULL,0,0,NULL,NULL};
     struct sockaddr sadr;
     int sockfd, saddr_len,bufflen;
@@ -120,7 +174,7 @@ int main(int argc, char ** argv){
             abort();
     }
    }
-   printf("t_protocal: %d\n", packet_filter.t_protocal);
+   printf("t_protocol: %d\n", packet_filter.t_protocol);
    printf("source port: %d\n", packet_filter.source_port);
    printf("destination port: %d\n", packet_filter.dest_port);
    printf("source ip: %s\n", packet_filter.source_ip);
@@ -132,8 +186,8 @@ int main(int argc, char ** argv){
    if(strlen(log)==0){
     strcopy(log, "sniffer_log.txt");
    }
-   log_file=fopen(log,"w");
-   if(!log_file){
+   logfile=fopen(log,"w");
+   if(!logfile){
     exit_with_error("FAILED TO OPEN LOG FILE");
    }
    
@@ -145,7 +199,13 @@ int main(int argc, char ** argv){
    }
 
    while(1){
-    //45:50
+    saddr_len = sizeof source_addr;
+    bufflen = recvfrom(sockfd, buffer, 65536, 0, &sadd, (socklon_t *)&saddr_len);
+    if(bufflen<0){
+        exit_with_error("FAILED TO READ FROM SOCKET");
+    }
+     process_packet(buffer,bufflen,&packet_filter,logfile);
+    fflush(logfile);
    }
     return 0;
 }
