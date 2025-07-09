@@ -33,6 +33,15 @@ typedef struct{
 
 struct sockaddr_in source_addr, dest_addr;
 
+uint8_t filter_port(uint16_t sport, uint16_t dport, packet_filter_t *filter){
+    if(filter->source_port!=0 && sport!=filter->source_port){
+        return 0;
+    }
+    if(filter->dest_port!=0 && dport!=filter->dest_port){
+        return 0;
+    }
+    return 1;
+}
 uint8_t filter_ip(packet_filter_t *filter){
     if(filter->source_ip !=NULL && strcmp(filter->source_ip, inet_ntoa(source_addr.sin_addr))!=0){
         return 0;
@@ -58,6 +67,29 @@ void get_mac(char * if_name, packet_filter_t * packet_filter, char * if_type){
     }
 }
 
+void log_eth_header(struct ethhdr * eth, FILE * lf){
+    fprintf(lf, "\tEthernet Header\n");
+    fprintf(lf, "\tSource MAC: %.2X:%.2X:%.2X:%.2X:%.2X:%.2X\n", eth->h_source[0],eth->h_source[1],eth->h_source[2],eth->h_source[3],eth->h_source[4],eth->h_source[5]);
+    fprintf(lf, "\tDest MAC: %.2X:%.2X:%.2X:%.2X:%.2X:%.2X\n", eth->h_dest[0],eth->h_dest[1],eth->h_dest[2],eth->h_dest[3],eth->h_dest[4],eth->h_dest[5]);
+    fprintf(lf, "\tProtocol: %d\n", ntohs(eth->h_proto));
+}
+
+void log_ip_headers(struct iphdr *ip, FILE * lf){
+    fprintf(lf, "\nIP Header\n");
+
+    fprintf(lf,"\tVersion: %d\n", (uint32_t)ip->version);
+    fprintf(lf,"\tInternet Header Length: %d Bytes\n", (uint32_t)(ip->ihl *4));
+    fprintf(lf,"\tType of Service: %d\n", (uint32_t)ip->tos);
+    fprintf(lf,"\tTotal Length: %d\n", ntohs(ip->tot_len));
+    fprintf(lf,"\tIdentification: %d\n", (uint32_t)ip->id);
+    fprintf(lf,"\tTime to Live: %d\n", (uint32_t)ip->ttl);
+    fprintf(lf,"\tProtocol: %d\n", (uint32_t)ip->protocol);
+    fprintf(lf,"\tHeader Checksum: %d\n", ntohs(ip->check));
+    fprintf(lf,"\tSource IP: %d\n", inet_ntoa(source_addr,sin_addr));
+    fprintf(lf,"\tDestination IP: %d\n", inet_ntoa(dest_addr,sin_addr));
+}
+
+//116:40
 uint8_t maccmp(uint8_t *mac1, uint8_t *mac2){
     for(uint8_t i=0; i<6; i++){
         if(mac1[i]!= mac2[i]){
@@ -73,7 +105,7 @@ uint8_t maccmp(uint8_t *mac1, uint8_t *mac2){
 //user data
 void process_packet (uint8_t *buffer, int bufflen, packet_filter_t *packet_filter, FILE *lf){
     int iphdrlen;
-    struct ethdr *eth = (struct ethdr*)(buffer);
+    struct ethhdr *eth = (struct ethhdr*)(buffer);
     if(ntohs(eth->h_proto)!=0x0800){
         return;
     }
@@ -86,7 +118,7 @@ void process_packet (uint8_t *buffer, int bufflen, packet_filter_t *packet_filte
         return;
     }
 
-    struct iphdr *ip = (struct iphdr*)(buffer+sizeof(struct ethdr));
+    struct iphdr *ip = (struct iphdr*)(buffer+sizeof(struct ethhdr));
     iphdrlen= ip->ihl*4;
 
     memset(&source_addr,0,sizeof(source_addr));
@@ -105,9 +137,19 @@ void process_packet (uint8_t *buffer, int bufflen, packet_filter_t *packet_filte
     struct tcphdr *tcp = NULL;
     struct udphdr *udp = NULL;
     if(ip->protocol==IPPROTO_TCP){
-        tcp = (struct tcphdr *)(buffer + iphdrlen + sizeof(struct ethdr));
-        //101:55
+        tcp = (struct tcphdr *)(buffer + iphdrlen + sizeof(struct ethhdr));
+        if(filter_port(ntohs(tcp->source),nthos(tcp->dest), packet_filter)==0){
+            return;
+        }else if(ip->protocol == IPPROTO_UDP){
+            udp = (struct udphdr *)( buffer + iphdrlen + sizeof(struct ethhdr));
+            if(filter_port(ntohs(udp->source),nthos(udp->dest), packet_filter)==0){
+                return;
+            }
+        }else{
+            return;
+        }
     }
+
 
 
 }
