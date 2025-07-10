@@ -89,7 +89,53 @@ void log_ip_headers(struct iphdr *ip, FILE * lf){
     fprintf(lf,"\tDestination IP: %d\n", inet_ntoa(dest_addr,sin_addr));
 }
 
-//116:40
+void log_tcp_headers(struct tcphdr * tcp, FILE * lf){
+    fprintf(lf,"\nTCP Header\n");
+
+    fprintf(lf,"\tSource Port: %d\n", ntohs(tcp->source));
+    fprintf(lf,"\tDestination Port: %u\n", ntohs(tcp->dest));
+    fprintf(lf,"\tSequence Number: %u\n", ntohl(tcp->seq));
+    fprintf(lf,"\tAcknowlgement Number: %d\n", ntohl(tcp->dest));
+    fprintf(lf,"\tHeader Length (BYTES): %d\n", (uint32_t)tcp->doff*4);
+    fprintf(lf,"\tFLAGS----------------------------------\n");
+    fprintf(lf,"\tUrgent Flag: %d\n", (uint32_t)tcp->urg);
+    fprintf(lf,"\tAcknowlgement Flag: %d\n", (uint32_t)tcp->ack);
+    fprintf(lf,"\tPush Flag: %d\n", (uint32_t)tcp->psh);
+    fprintf(lf,"\tReset Flag: %d\n", (uint32_t)tcp->rst);
+    fprintf(lf,"\tSynchronising Flag: %d\n", (uint32_t)tcp->syn);
+    fprintf(lf,"\tFinish Flag: %d\n", (uint32_t)tcp->fin);
+    fprintf(lf,"\tWindow Size: %d\n", ntohs(tcp->window));
+    fprintf(lf,"\tChecksum: %d\n", ntohs(tcp->check));
+    fprintf(lf,"\tUrgent Pointer: %d\n", (uint32_t)tcp->urg_ptr);
+}
+
+void log_udp_headers(struct udphdr * udp, FILE * lf){
+    fprintf(lf,"\nUDP Header\n");
+
+    fprintf(lf,"\tSource Port: %d\n", ntohs(udp->source));
+    fprintf(lf,"\tDestination Port: %u\n", ntohs(udp->dest));
+    fprintf(lf, "\tUDP Length: %u\n", ntohs(udp->len));
+    fprintf(lf, "\tChecksum: %u\n", ntohs(udp->check));
+}
+
+void log_payload(uint8_t *buffer, int bufflen, int iphdrlen,uint8_t protocol,FILE * lf, struct tcphdr *tcp){
+    uint32_t protocol_header_size = sizeof(struct udphdr);
+    if(protocol==IPPROTO_TCP){
+        protocol_header_size = (uint32_t)tcp->doff *4;
+    }
+    uint8_t *packet_data = (buffer + sizeof(struct ethhdr)+ iphdrlen + protocol_header_size);
+    int remaining_data_size = bufflen-(sizeof(struct ethhdr)+ iphdrlen + protocol_header_size);
+    fprintf(lf,"\nDATA\n");
+
+    for(int i=0; i<remaining_data_size; i++){
+        if(i!=0 && i%16==0){
+            fprintf(lf,"\n");
+        } 
+        fprintf(lf,"%2.X",packet_data[i]);
+    }
+    fprintf(lf,"\n");
+
+}
 uint8_t maccmp(uint8_t *mac1, uint8_t *mac2){
     for(uint8_t i=0; i<6; i++){
         if(mac1[i]!= mac2[i]){
@@ -148,6 +194,7 @@ void process_packet (uint8_t *buffer, int bufflen, packet_filter_t *packet_filte
         }else{
             return;
         }
+        //130:20
     }
 
 
