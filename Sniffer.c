@@ -95,7 +95,7 @@ void log_tcp_headers(struct tcphdr * tcp, FILE * lf){
     fprintf(lf,"\tSource Port: %d\n", ntohs(tcp->source));
     fprintf(lf,"\tDestination Port: %u\n", ntohs(tcp->dest));
     fprintf(lf,"\tSequence Number: %u\n", ntohl(tcp->seq));
-    fprintf(lf,"\tAcknowlgement Number: %d\n", ntohl(tcp->dest));
+    fprintf(lf,"\tAcknowledgment Number: %u\n", ntohl(tcp->ack_seq));
     fprintf(lf,"\tHeader Length (BYTES): %d\n", (uint32_t)tcp->doff*4);
     fprintf(lf,"\tFLAGS----------------------------------\n");
     fprintf(lf,"\tUrgent Flag: %d\n", (uint32_t)tcp->urg);
@@ -182,36 +182,34 @@ void process_packet (uint8_t *buffer, int bufflen, packet_filter_t *packet_filte
     //only considering upd and tcp packets
     struct tcphdr *tcp = NULL;
     struct udphdr *udp = NULL;
-    if(ip->protocol==IPPROTO_TCP){
+    if(ip->protocol == IPPROTO_TCP){
         tcp = (struct tcphdr *)(buffer + iphdrlen + sizeof(struct ethhdr));
         if(filter_port(ntohs(tcp->source),ntohs(tcp->dest), packet_filter)==0){
             return;
-        }else if(ip->protocol == IPPROTO_UDP){
-            udp = (struct udphdr *)( buffer + iphdrlen + sizeof(struct ethhdr));
-            if(filter_port(ntohs(udp->source),ntohs(udp->dest), packet_filter)==0){
-                return;
-            }
-        }else{
+     }
+    } else if(ip->protocol == IPPROTO_UDP){
+        udp = (struct udphdr *)( buffer + iphdrlen + sizeof(struct ethhdr));
+        if(filter_port(ntohs(udp->source),ntohs(udp->dest), packet_filter)==0){
             return;
         }
-        log_eth_header(eth,lf);
-        log_ip_headers(ip,lf);
-        if(tcp!=NULL){
-            log_tcp_headers(tcp,lf);
-        }
-        if(udp!=NULL){
-            log_udp_headers(udp,lf);
-        }
-        log_payload(buffer,bufflen,iphdrlen,ip->protocol,lf,tcp);
+    } else {
+        return;
     }
 
-
-
+log_eth_header(eth,lf);
+log_ip_headers(ip,lf);
+if(tcp != NULL){
+    log_tcp_headers(tcp,lf);
+}
+if(udp != NULL){
+ log_udp_headers(udp,lf);
+}
+log_payload(buffer, bufflen, iphdrlen, ip->protocol, lf, tcp);
 }
 
 int main(int argc, char ** argv){
     int c;
-    char log[255];
+    char log[255] ={0};
     FILE* logfile=NULL;
     packet_filter_t packet_filter = {0, NULL,NULL,0,0,NULL,NULL};
     struct sockaddr saddr;
