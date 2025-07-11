@@ -55,7 +55,7 @@ void get_mac(char * if_name, packet_filter_t * packet_filter, char * if_type){
     int fd;
     struct ifreq ifr;
     fd = socket(AF_INET, SOCK_DGRAM,0);
-    ifr.idr_addr.sa_family = AF_INET;
+    ifr.ifr_addr.sa_family = AF_INET;
     strncpy(ifr.ifr_name, if_name, IFNAMSIZ-1);
     ioctl(fd,SIOCGIFHWADDR,&ifr);
     close(fd);
@@ -85,8 +85,8 @@ void log_ip_headers(struct iphdr *ip, FILE * lf){
     fprintf(lf,"\tTime to Live: %d\n", (uint32_t)ip->ttl);
     fprintf(lf,"\tProtocol: %d\n", (uint32_t)ip->protocol);
     fprintf(lf,"\tHeader Checksum: %d\n", ntohs(ip->check));
-    fprintf(lf,"\tSource IP: %d\n", inet_ntoa(source_addr,sin_addr));
-    fprintf(lf,"\tDestination IP: %d\n", inet_ntoa(dest_addr,sin_addr));
+    fprintf(lf,"\tSource IP: %s\n", inet_ntoa(source_addr.sin_addr));
+    fprintf(lf,"\tDestination IP: %s\n", inet_ntoa(dest_addr.sin_addr));
 }
 
 void log_tcp_headers(struct tcphdr * tcp, FILE * lf){
@@ -184,17 +184,25 @@ void process_packet (uint8_t *buffer, int bufflen, packet_filter_t *packet_filte
     struct udphdr *udp = NULL;
     if(ip->protocol==IPPROTO_TCP){
         tcp = (struct tcphdr *)(buffer + iphdrlen + sizeof(struct ethhdr));
-        if(filter_port(ntohs(tcp->source),nthos(tcp->dest), packet_filter)==0){
+        if(filter_port(ntohs(tcp->source),ntohs(tcp->dest), packet_filter)==0){
             return;
         }else if(ip->protocol == IPPROTO_UDP){
             udp = (struct udphdr *)( buffer + iphdrlen + sizeof(struct ethhdr));
-            if(filter_port(ntohs(udp->source),nthos(udp->dest), packet_filter)==0){
+            if(filter_port(ntohs(udp->source),ntohs(udp->dest), packet_filter)==0){
                 return;
             }
         }else{
             return;
         }
-        //130:20
+        log_eth_header(eth,lf);
+        log_ip_headers(ip,lf);
+        if(tcp!=NULL){
+            log_tcp_headers(tcp,lf);
+        }
+        if(udp!=NULL){
+            log_udp_headers(udp,lf);
+        }
+        log_payload(buffer,bufflen,iphdrlen,ip->protocol,lf,tcp);
     }
 
 
@@ -206,7 +214,7 @@ int main(int argc, char ** argv){
     char log[255];
     FILE* logfile=NULL;
     packet_filter_t packet_filter = {0, NULL,NULL,0,0,NULL,NULL};
-    struct sockaddr sadr;
+    struct sockaddr saddr;
     int sockfd, saddr_len,bufflen;
    uint8_t *buffer = (uint8_t*)malloc(65536); //65536 is the natrual size of binary systems, 2^16
    memset(buffer,0,65536);
@@ -227,7 +235,7 @@ int main(int argc, char ** argv){
         {"udp", no_argument,NULL,'u'},
         {0,0,0,0}
     };
-    c = getopt_long(argc,argc,"tus:d:p:o:i:g:f:",long_options,NULL); //sets optarg
+    c = getopt_long(argc,argv,"tus:d:p:o:i:g:f:",long_options,NULL); //sets optarg
     if(c==-1){
         break;
     }
@@ -273,7 +281,7 @@ int main(int argc, char ** argv){
    printf("log file %s\n", log);
 
    if(strlen(log)==0){
-    strcopy(log, "sniffer_log.txt");
+    strcpy(log, "sniffer_log.txt");
    }
    logfile=fopen(log,"w");
    if(!logfile){
@@ -289,7 +297,7 @@ int main(int argc, char ** argv){
 
    while(1){
     saddr_len = sizeof source_addr;
-    bufflen = recvfrom(sockfd, buffer, 65536, 0, &sadd, (socklon_t *)&saddr_len);
+    bufflen = recvfrom(sockfd, buffer, 65536, 0, &saddr, (socklen_t *)&saddr_len);
     if(bufflen<0){
         exit_with_error("FAILED TO READ FROM SOCKET");
     }
