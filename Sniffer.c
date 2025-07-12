@@ -61,9 +61,9 @@ void get_mac(char * if_name, packet_filter_t * packet_filter, char * if_type){
     close(fd);
 
     if(strcmp(if_type, "source")==0){
-        strcpy(packet_filter->source_mac, (uint8_t*) ifr.ifr_hwaddr.sa_data);
+        memcpy(packet_filter->source_mac, ifr.ifr_hwaddr.sa_data, 6);
     }else{
-        strcpy(packet_filter->dest_mac, (uint8_t*) ifr.ifr_hwaddr.sa_data);
+        memcpy(packet_filter->dest_mac, ifr.ifr_hwaddr.sa_data, 6);
     }
 }
 
@@ -211,7 +211,7 @@ int main(int argc, char ** argv){
     int c;
     char log[255] ={0};
     FILE* logfile=NULL;
-    packet_filter_t packet_filter = {0, NULL,NULL,0,0,NULL,NULL};
+    packet_filter_t packet_filter = {0};
     struct sockaddr saddr;
     int sockfd, saddr_len,bufflen;
    uint8_t *buffer = (uint8_t*)malloc(65536); //65536 is the natrual size of binary systems, 2^16
@@ -225,7 +225,7 @@ int main(int argc, char ** argv){
         {"sip", required_argument,NULL,'s'},
         {"dip", required_argument,NULL,'d'},
         {"sport", required_argument,NULL,'p'},
-        {"dort", required_argument,NULL,'o'},
+        {"dport", required_argument,NULL,'o'},
         {"sif", required_argument,NULL,'i'},
         {"dif", required_argument,NULL,'g'},
         {"logfile", required_argument,NULL,'f'},
@@ -302,5 +302,10 @@ int main(int argc, char ** argv){
      process_packet(buffer,bufflen,&packet_filter,logfile);
     fflush(logfile);
    }
+   free(buffer);
+    if (logfile){
+     fclose(logfile);
+    }
+    close(sockfd);
     return 0;
 }
