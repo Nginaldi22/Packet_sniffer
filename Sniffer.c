@@ -131,7 +131,7 @@ void log_payload(uint8_t *buffer, int bufflen, int iphdrlen,uint8_t protocol,FIL
         if(i!=0 && i%16==0){
             fprintf(lf,"\n");
         } 
-        fprintf(lf,"%2.X",packet_data[i]);
+        fprintf(lf,"%2.X\t",packet_data[i]);
     }
     fprintf(lf,"\n");
 
