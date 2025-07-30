@@ -1,1 +1,40 @@
-Test Commit from WLS
+# Packet Sniffer in C
+
+## Overview
+
+This project implements a low-level **packet sniffer** in C using raw sockets. It captures and logs Ethernet, IP, TCP, and UDP headers along with packet payloads. It supports configurable **packet filtering** based on source/destination IPs, ports, interfaces, and protocols (TCP/UDP).
+
+## Features
+
+- Captures live traffic on a network interface.
+- Parses and logs:
+  - Ethernet headers
+  - IP headers
+  - TCP/UDP headers
+  - Packet payloads
+- Allows packet filtering via command-line arguments:
+  - Source/Destination IP
+  - Source/Destination Port
+  - Source/Destination Interface
+  - Protocol (TCP or UDP)
+- Logs packet data to a specified file (default: `sniffer_log.txt`)
+
+---
+
+## Requirements
+
+- Linux system (due to use of `AF_PACKET` and `<linux/if_packet.h>`)
+- GCC (for compiling the code)
+- Root privileges (for creating raw sockets)
+
+---
+
+## Building
+
+- Use the `gcc` compiler to build:
+
+- command is: gcc -o sniffer sniffer.c
+
+## Usage
+
+- sudo./sniffer [OPTIONS]

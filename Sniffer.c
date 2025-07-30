@@ -68,10 +68,11 @@ void get_mac(char * if_name, packet_filter_t * packet_filter, char * if_type){
 }
 
 void log_eth_header(struct ethhdr * eth, FILE * lf){
-    fprintf(lf, "\tEthernet Header\n");
+    fprintf(lf, "\nEthernet Header\n");
     fprintf(lf, "\tSource MAC: %.2X:%.2X:%.2X:%.2X:%.2X:%.2X\n", eth->h_source[0],eth->h_source[1],eth->h_source[2],eth->h_source[3],eth->h_source[4],eth->h_source[5]);
     fprintf(lf, "\tDest MAC: %.2X:%.2X:%.2X:%.2X:%.2X:%.2X\n", eth->h_dest[0],eth->h_dest[1],eth->h_dest[2],eth->h_dest[3],eth->h_dest[4],eth->h_dest[5]);
     fprintf(lf, "\tProtocol: %d\n", ntohs(eth->h_proto));
+    fflush(lf);
 }
 
 void log_ip_headers(struct iphdr *ip, FILE * lf){
@@ -87,6 +88,7 @@ void log_ip_headers(struct iphdr *ip, FILE * lf){
     fprintf(lf,"\tHeader Checksum: %d\n", ntohs(ip->check));
     fprintf(lf,"\tSource IP: %s\n", inet_ntoa(source_addr.sin_addr));
     fprintf(lf,"\tDestination IP: %s\n", inet_ntoa(dest_addr.sin_addr));
+    fflush(lf);
 }
 
 void log_tcp_headers(struct tcphdr * tcp, FILE * lf){
@@ -107,6 +109,7 @@ void log_tcp_headers(struct tcphdr * tcp, FILE * lf){
     fprintf(lf,"\tWindow Size: %d\n", ntohs(tcp->window));
     fprintf(lf,"\tChecksum: %d\n", ntohs(tcp->check));
     fprintf(lf,"\tUrgent Pointer: %d\n", (uint32_t)tcp->urg_ptr);
+    fflush(lf);
 }
 
 void log_udp_headers(struct udphdr * udp, FILE * lf){
@@ -116,6 +119,7 @@ void log_udp_headers(struct udphdr * udp, FILE * lf){
     fprintf(lf,"\tDestination Port: %u\n", ntohs(udp->dest));
     fprintf(lf, "\tUDP Length: %u\n", ntohs(udp->len));
     fprintf(lf, "\tChecksum: %u\n", ntohs(udp->check));
+    fflush(lf);
 }
 
 void log_payload(uint8_t *buffer, int bufflen, int iphdrlen,uint8_t protocol,FILE * lf, struct tcphdr *tcp){
@@ -134,7 +138,7 @@ void log_payload(uint8_t *buffer, int bufflen, int iphdrlen,uint8_t protocol,FIL
         fprintf(lf,"%2.X\t",packet_data[i]);
     }
     fprintf(lf,"\n");
-
+    fflush(lf);
 }
 uint8_t maccmp(uint8_t *mac1, uint8_t *mac2){
     for(uint8_t i=0; i<6; i++){
@@ -300,7 +304,6 @@ int main(int argc, char ** argv){
         exit_with_error("FAILED TO READ FROM SOCKET");
     }
      process_packet(buffer,bufflen,&packet_filter,logfile);
-    fflush(logfile);
    }
    free(buffer);
     if (logfile){
